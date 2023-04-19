@@ -41,3 +41,18 @@ executor-lldb:
 streams:
   :commit: 2f9141de26e5331ab35fc91c03ab6a60317bbf7c
   :branch: master
+build-compile-commands:
+  :commit: a2953169abbb896e7f0b5e8ac41fc89edd95d4b4
+  :branch: main
+concurrent:
+  :commit: 82ea9829ba71eb32d82df854be7b15c8cc88c993
+  :branch: master
+time:
+  :commit: 795a5514b6be74bb81604e08257eec44444a745d
+  :branch: master
+coroutine:
+  :commit: 428204db9f5485d1565884c218933fd16833b439
+  :branch: master
+coroutine-arm64:
+  :commit: aada7d279a6c2ae79b6f8f3e45cfa44de3c432fe
+  :branch: master

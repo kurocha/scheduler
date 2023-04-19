@@ -1,4 +1,0 @@
-
-namespace Scheduler {
-	void sing();
-}

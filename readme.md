@@ -1,10 +1,6 @@
 # Scheduler
 
-Scheduler is a fantastic project with lots of potential.
-
-For examples and documentation please see the main [project page][1].
-
-[1]: http://teapot.nz/
+Provides a light weight event-driven scheduler implementation and interface.
 
 ## Setup
 
@@ -29,13 +25,9 @@ Run the tests to confirm basic functionality:
 	$ cd scheduler
 	$ teapot Test/Scheduler
 
-## Usage
-
-You can run the tool by executing the following:
-
-	$ teapot Run/Scheduler
-
 ## Contributing
+
+We welcome contributions to this project.
 
 1. Fork it.
 2. Create your feature branch (`git checkout -b my-new-feature`).

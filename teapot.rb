@@ -9,7 +9,11 @@ end
 # Build Targets
 
 define_target 'scheduler-library' do |target|
-	target.depends 'Language/C++14'
+	target.depends 'Language/C++17'
+	target.depends 'Build/Compile/Commands'
+	
+	target.depends "Library/Time", public: true
+	target.depends "Library/Concurrent", public: true
 	
 	target.provides 'Library/Scheduler' do
 		source_root = target.package.path + 'source'
@@ -18,6 +22,8 @@ define_target 'scheduler-library' do |target|
 		
 		append linkflags library_path
 		append header_search_paths source_root
+		
+		compile_commands destination_path: (source_root + "compile_commands.json")
 	end
 end
 
@@ -25,36 +31,15 @@ define_target 'scheduler-test' do |target|
 	target.depends 'Library/Scheduler'
 	target.depends 'Library/UnitTest'
 	
-	target.depends 'Language/C++14'
+	target.depends 'Language/C++17'
+	target.depends 'Build/Compile/Commands'
 	
 	target.provides 'Test/Scheduler' do |arguments|
 		test_root = target.package.path + 'test'
 		
 		run tests: 'Scheduler-tests', source_files: test_root.glob('Scheduler/**/*.cpp'), arguments: arguments
-	end
-end
-
-define_target 'scheduler-executable' do |target|
-	target.depends 'Library/Scheduler'
-	
-	target.depends 'Language/C++14'
-	
-	target.provides 'Executable/Scheduler' do
-		source_root = target.package.path + 'source'
 		
-		executable_path = build executable: 'Scheduler', source_files: source_root.glob('Scheduler.cpp')
-		
-		scheduler_executable executable_path
-	end
-end
-
-define_target 'scheduler-run' do |target|
-	target.depends 'Executable/Scheduler'
-	
-	target.depends :executor
-	
-	target.provides 'Run/Scheduler' do |*arguments|
-		run executable_file: environment[:scheduler_executable], arguments: arguments
+		compile_commands destination_path: (test_root + "compile_commands.json")
 	end
 end
 
@@ -74,8 +59,13 @@ define_configuration 'development' do |configuration|
 	configuration.require 'generate-cpp-class'
 	
 	configuration.require "generate-project"
+	
+	configuration.require "build-compile-commands"
 end
 
 define_configuration "scheduler" do |configuration|
 	configuration.public!
+	
+	configuration.require "concurrent"
+	configuration.require "time"
 end
