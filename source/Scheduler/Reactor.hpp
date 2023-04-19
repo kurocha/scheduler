@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <stdexcept>
+
 #if defined(__linux__)
 	#define SCHEDULER_EPOLL
 #elif defined(__MACH__)
