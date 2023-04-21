@@ -44,7 +44,7 @@ namespace Scheduler
 		});
 		
 		try {
-			Fiber::current->yield();
+			_reactor->transfer();
 		} catch (...) {
 			_reactor->append({
 				reinterpret_cast<uintptr_t>(this),
@@ -68,7 +68,7 @@ namespace Scheduler
 		value.it_interval = {0, 0};
 		
 		::timerfd_settime(timer_handle, 0, &value, nullptr);
-		Fiber::current->yield();
+		_reactor->transfer();
 #endif
 	}
 }

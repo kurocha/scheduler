@@ -13,6 +13,7 @@
 
 #include <errno.h>
 #include <system_error>
+#include <iostream>
 
 #include <unistd.h>
 
@@ -42,6 +43,11 @@ namespace Scheduler
 	{
 	}
 	
+	void Reactor::transfer()
+	{
+		Fiber::main.transfer();
+	}
+	
 #if defined(SCHEDULER_EPOLL)
 	Reactor::Reactor() : _selector(::epoll_create1(EPOLL_CLOEXEC))
 	{
@@ -66,7 +72,7 @@ namespace Scheduler
 			auto fiber = reinterpret_cast<Concurrent::Fiber *>(event.data.ptr);
 			
 			if (fiber != nullptr)
-				fiber->resume();
+				fiber->transfer();
 		}
 		
 		_events.resize(0);
@@ -149,8 +155,9 @@ namespace Scheduler
 			
 			auto fiber = reinterpret_cast<Concurrent::Fiber *>(event.udata);
 			
-			if (fiber != nullptr)
-				fiber->resume();
+			if (fiber != nullptr) {
+				fiber->transfer();
+			}
 		}
 		
 		_events.resize(0);

@@ -11,6 +11,7 @@
 #include <Concurrent/Fiber.hpp>
 
 #include <cassert>
+#include <iostream>
 
 namespace Scheduler
 {
@@ -50,7 +51,9 @@ namespace Scheduler
 			(void*)Fiber::current
 		}, false);
 		
-		Fiber::current->yield();
+		_reactor->transfer();
+		
+		std::cerr << "back from transfer status=" << (int)Fiber::current->status() << std::endl;
 	}
 #elif defined(SCHEDULER_EPOLL)
 	void Monitor::wait(Monitor::Event events)
@@ -67,7 +70,7 @@ namespace Scheduler
 		
 		_reactor->append(action, _descriptor, events | EPOLLET | EPOLLONESHOT, (void*)Fiber::current);
 		
-		Fiber::current->yield();
+		_reactor->transfer();
 	}
 #endif
 }

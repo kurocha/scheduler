@@ -30,6 +30,7 @@
 #endif
 
 #include "Handle.hpp"
+#include "Fiber.hpp"
 
 namespace Scheduler
 {
@@ -43,6 +44,8 @@ namespace Scheduler
 
 		Reactor();
 		~Reactor();
+		
+		void transfer();
 		
 		// Run the reactor once, waiting for at most the given duration for events to occur.
 		std::size_t update(Interval duration);
