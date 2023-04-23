@@ -27,7 +27,7 @@ namespace Scheduler
 #if defined(SCHEDULER_KQUEUE)
 			_reactor->append({
 				static_cast<uintptr_t>(_descriptor),
-				EVFILT_WRITE,
+				_events,
 				EV_DELETE,
 				0,
 				0,
@@ -55,11 +55,12 @@ namespace Scheduler
 		assert(Fiber::current);
 		
 		_added = true;
+		_events = events;
 		
 		_reactor->append({
 			static_cast<uintptr_t>(_descriptor),
 			events,
-			EV_ADD | EV_CLEAR | EV_ONESHOT,
+			EV_ADD | EV_CLEAR | EV_ONESHOT | EV_UDATA_SPECIFIC,
 			0,
 			0,
 			(void*)Fiber::current
@@ -67,7 +68,7 @@ namespace Scheduler
 		
 		_reactor->transfer();
 		
-		std::cerr << "back from transfer status=" << (int)Fiber::current->status() << std::endl;
+		_added = false;
 	}
 #elif defined(SCHEDULER_EPOLL)
 	void Monitor::wait(Monitor::Event events)
