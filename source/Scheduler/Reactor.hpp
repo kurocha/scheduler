@@ -17,6 +17,7 @@
 #endif
 
 #include <vector>
+#include <list>
 #include <Time/Interval.hpp>
 
 #if defined(SCHEDULER_EPOLL)
@@ -35,6 +36,19 @@
 namespace Scheduler
 {
 	using Time::Interval;
+	
+	template <typename Callback>
+	struct Defer {
+		Callback _callback;
+		
+		Defer(Callback callback) : _callback(callback) {}
+		~Defer() {_callback();}
+	};
+	
+	template <typename Callback>
+	Defer<Callback> defer(Callback callback) {
+		return Defer<Callback>(callback);
+	}
 	
 	class Reactor final
 	{
@@ -56,9 +70,32 @@ namespace Scheduler
 		const Handle & handle() const noexcept {return _selector;}
 		Handle & handle() noexcept {return _selector;}
 		
+		template <typename Function>
+		void fiber(Function && function)
+		{
+			auto iterator = _fibers.insert(_fibers.end(), nullptr);
+			
+			iterator->reset(new Fiber([this, iterator, function = std::forward<Function>(function)]{
+				auto defer_erase = defer([this, iterator]{
+					// Remove the fiber from the list of fibers:
+					_fibers.erase(iterator);
+				});
+				
+				function();
+			}));
+			
+			_ready.push_back(iterator->get());
+		}
+		
 	private:
 		Handle _selector;
-
+		
+		std::list<std::unique_ptr<Fiber>> _fibers;
+		std::list<Fiber *> _ready;
+		std::size_t transfer_ready();
+		
+		std::size_t select(Interval duration);
+		
 #if defined(SCHEDULER_EPOLL)
 	public:
 		void append(int operation, Descriptor descriptor, int events, void * data);

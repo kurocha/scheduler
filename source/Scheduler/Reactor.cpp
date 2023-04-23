@@ -21,6 +21,13 @@ namespace Scheduler
 {
 	thread_local Reactor * Reactor::current = nullptr;
 	
+	std::size_t Reactor::update(Interval duration)
+	{
+		std::size_t count = transfer_ready();
+		count += select(duration);
+		return count;
+	}
+	
 	std::size_t Reactor::wait(Interval duration)
 	{
 		Time::Timeout timeout(duration);
@@ -48,13 +55,28 @@ namespace Scheduler
 		Fiber::main.transfer();
 	}
 	
+	size_t Reactor::transfer_ready()
+	{
+		size_t count = 0;
+		
+		while (!_ready.empty()) {
+			auto fiber = _ready.front();
+			_ready.pop_front();
+			
+			count += 1;
+			fiber->transfer();
+		}
+		
+		return count;
+	}
+	
 #if defined(SCHEDULER_EPOLL)
 	Reactor::Reactor() : _selector(::epoll_create1(EPOLL_CLOEXEC))
 	{
 		_events.reserve(512);
 	}
 	
-	std::size_t Reactor::update(Interval duration)
+	std::size_t Reactor::select(Interval duration)
 	{
 		_events.resize(_events.capacity());
 		auto result = ::epoll_wait(_selector, _events.data(), _events.size(), duration.as_milliseconds());
@@ -126,7 +148,7 @@ namespace Scheduler
 		return "???";
 	}
 	
-	std::size_t Reactor::update(Interval duration)
+	std::size_t Reactor::select(Interval duration)
 	{
 		auto timeout = duration.as_timespec();
 		
