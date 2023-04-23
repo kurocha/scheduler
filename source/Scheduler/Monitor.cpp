@@ -23,6 +23,20 @@ namespace Scheduler
 	
 	Monitor::~Monitor()
 	{
+		if (_added) {
+#if defined(SCHEDULER_KQUEUE)
+			_reactor->append({
+				static_cast<uintptr_t>(_descriptor),
+				EVFILT_WRITE,
+				EV_DELETE,
+				0,
+				0,
+				nullptr
+			});
+#elif defined(SCHEDULER_EPOLL)
+			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, nullptr);
+#endif
+		}
 	}
 	
 	void Monitor::wait_readable()
