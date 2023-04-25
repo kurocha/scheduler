@@ -126,7 +126,7 @@ namespace Scheduler
 		_events.reserve(512);
 	}
 	
-	static const char * filter_name(int16_t filter) {
+	std::string filter_name(int16_t filter) {
 		switch (filter) {
 			case EVFILT_READ: return "EVFILT_READ";
 			case EVFILT_WRITE: return "EVFILT_WRITE";
@@ -136,16 +136,21 @@ namespace Scheduler
 		return "???";
 	}
 	
-	static const char * flags_name(uint16_t flags) {
-		switch (flags) {
-			case EV_ADD: return "EV_ADD";
-			case EV_DELETE: return "EV_DELETE";
-			case EV_DISABLE: return "EV_DISABLE";
-			case (EV_ADD | EV_ONESHOT): return "EV_ADD|EV_ONESHOT";
-			case (EV_ADD | EV_CLEAR): return "EV_ADD|EV_CLEAR";
-		}
+	std::string flags_name(uint16_t flags) {
+		std::string result = "";
 		
-		return "???";
+		if (flags & EV_ADD) result += "EV_ADD|";
+		if (flags & EV_DELETE) result += "EV_DELETE|";
+		if (flags & EV_ENABLE) result += "EV_ENABLE|";
+		if (flags & EV_DISABLE) result += "EV_DISABLE|";
+		if (flags & EV_ONESHOT) result += "EV_ONESHOT|";
+		if (flags & EV_CLEAR) result += "EV_CLEAR|";
+		if (flags & EV_UDATA_SPECIFIC) result += "EV_UDATA_SPECIFIC|";
+		
+		if (result.size() > 0)
+			result.resize(result.size() - 1);
+		
+		return result;
 	}
 	
 	std::size_t Reactor::select(Interval duration)
@@ -156,8 +161,7 @@ namespace Scheduler
 		_events.resize(_events.capacity());
 		auto result = kevent(_selector, _changes.data(), _changes.size(), _events.data(), _events.size(), duration < Interval(0) ? nullptr : &timeout);
 		
-		// std::cerr << "update kqueue = " << result << " errno = " << errno << std::endl;
-		// 
+		// std::cerr << "select:kqueue = " << result << " errno = " << errno << std::endl;
 		// for (auto & change : _changes) {
 		// 	std::cerr << "\tchange " << change.ident << " " << filter_name(change.filter) << " " << flags_name(change.flags) << std::endl;
 		// }
@@ -199,8 +203,7 @@ namespace Scheduler
 		if (flush) {
 			auto result = kevent(_selector, _changes.data(), _changes.size(), nullptr, 0, nullptr);
 			
-			// std::cerr << "apply_changes kqueue = " << result << " errno = " << errno << std::endl;
-			// 
+			// std::cerr << "append:kqueue = " << result << " errno = " << errno << std::endl;
 			// for (auto & change : _changes) {
 			// 	std::cerr << "\tchange " << change.ident << " " << filter_name(change.filter) << " " << flags_name(change.flags) << std::endl;
 			// }

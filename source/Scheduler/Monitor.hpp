@@ -35,8 +35,9 @@ namespace Scheduler
 		void wait(Event event);
 		
 	protected:
-		bool _added = false;
+		void remove();
 		
+		Fiber *_added = nullptr;
 		Event _events = NONE;
 		
 		Descriptor _descriptor;

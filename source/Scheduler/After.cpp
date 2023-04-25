@@ -36,27 +36,27 @@ namespace Scheduler
 		_reactor->append({
 			reinterpret_cast<uintptr_t>(this),
 			EVFILT_TIMER,
-			EV_ADD | EV_ONESHOT,
+			EV_ADD | EV_ONESHOT | EV_UDATA_SPECIFIC,
 			// TODO this may overflow
 			NOTE_USECONDS,
 			static_cast<intptr_t>(static_cast<double>(_duration) * 1000 * 1000),
 			Fiber::current
 		});
 		
-		try {
-			_reactor->transfer();
-		} catch (...) {
+		auto defer_removal = defer([&]{
 			_reactor->append({
 				reinterpret_cast<uintptr_t>(this),
 				EVFILT_TIMER,
-				EV_ADD | EV_ONESHOT,
+				EV_DELETE | EV_UDATA_SPECIFIC,
 				0,
 				0,
-				nullptr
+				Fiber::current
 			}, false);
-			
-			throw;
-		}
+		});
+		
+		_reactor->transfer();
+		
+		defer_removal.cancel();
 #elif defined(SCHEDULER_EPOLL)
 		// TODO cache the timer handle:
 		Handle timer_handle = ::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);

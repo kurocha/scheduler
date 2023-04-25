@@ -7,6 +7,7 @@
 //
 
 #include "Monitor.hpp"
+#include "Defer.hpp"
 
 #include <Concurrent/Fiber.hpp>
 
@@ -23,20 +24,7 @@ namespace Scheduler
 	
 	Monitor::~Monitor()
 	{
-		if (_added) {
-#if defined(SCHEDULER_KQUEUE)
-			_reactor->append({
-				static_cast<uintptr_t>(_descriptor),
-				_events,
-				EV_DELETE,
-				0,
-				0,
-				nullptr
-			});
-#elif defined(SCHEDULER_EPOLL)
-			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, nullptr);
-#endif
-		}
+		remove();
 	}
 	
 	void Monitor::wait_readable()
@@ -54,7 +42,7 @@ namespace Scheduler
 	{
 		assert(Fiber::current);
 		
-		_added = true;
+		_added = Fiber::current;
 		_events = events;
 		
 		_reactor->append({
@@ -66,9 +54,14 @@ namespace Scheduler
 			(void*)Fiber::current
 		}, false);
 		
+		auto defer_removal = defer([&]{
+			remove();
+		});
+		
 		_reactor->transfer();
 		
-		_added = false;
+		defer_removal.cancel();
+		_added = nullptr;
 	}
 #elif defined(SCHEDULER_EPOLL)
 	void Monitor::wait(Monitor::Event events)
@@ -80,7 +73,7 @@ namespace Scheduler
 		if (_added) {
 			action = EPOLL_CTL_MOD;
 		} else {
-			_added = true;
+			_added = Fiber::current;
 		}
 		
 		_reactor->append(action, _descriptor, events | EPOLLET | EPOLLONESHOT, (void*)Fiber::current);
@@ -88,4 +81,25 @@ namespace Scheduler
 		_reactor->transfer();
 	}
 #endif
+
+	void Monitor::remove()
+	{
+		if (_added) {
+			auto added = _added;
+			_added = nullptr;
+			
+#if defined(SCHEDULER_KQUEUE)
+			_reactor->append({
+				static_cast<uintptr_t>(_descriptor),
+				_events,
+				EV_DELETE | EV_UDATA_SPECIFIC,
+				0,
+				0,
+				added
+			});
+#elif defined(SCHEDULER_EPOLL)
+			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, added);
+#endif
+		}
+	}
 }

@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "Defer.hpp"
+
 #include <stdexcept>
 
 #if defined(__linux__)
@@ -36,19 +38,6 @@
 namespace Scheduler
 {
 	using Time::Interval;
-	
-	template <typename Callback>
-	struct Defer {
-		Callback _callback;
-		
-		Defer(Callback callback) : _callback(callback) {}
-		~Defer() {_callback();}
-	};
-	
-	template <typename Callback>
-	Defer<Callback> defer(Callback callback) {
-		return Defer<Callback>(callback);
-	}
 	
 	class Reactor final
 	{
