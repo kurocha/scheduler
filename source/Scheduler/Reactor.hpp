@@ -48,7 +48,7 @@ namespace Scheduler
 		Reactor();
 		~Reactor();
 		
-		// Transfer to the reactor.
+		// Transfer to the reactor. The current fiber will be marked as waiting.
 		void transfer();
 		
 		// Transfer to the specified fiber, mark the current fiber as ready.
@@ -85,7 +85,7 @@ namespace Scheduler
 		std::vector<struct epoll_event> _events;
 #elif defined(SCHEDULER_KQUEUE)
 	public:
-		std::size_t select_internal(int timeout);
+		std::size_t select_internal(struct timespec * timeout);
 		void append(const struct kevent & event, bool flush = true);
 		
 	private:

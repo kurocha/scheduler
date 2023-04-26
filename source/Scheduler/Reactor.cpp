@@ -25,9 +25,11 @@ namespace Scheduler
 	{
 		std::size_t count = 0;
 		
-		while (_waiting || !_ready.empty()) {
-			count += transfer_ready();
+		count += transfer_ready();
+		
+		while (_waiting) {
 			count += select();
+			count += transfer_ready();
 		}
 		
 		return count;
@@ -40,13 +42,14 @@ namespace Scheduler
 		
 		timeout.start();
 		
-		while (_waiting || !_ready.empty()) {
-			count += transfer_ready();
-			
+		count += transfer_ready();
+		
+		while (_waiting) {
 			auto remaining = timeout.remaining();
 			if (remaining < Interval(0)) break;
 			
 			count += select(remaining);
+			count += transfer_ready();
 		}
 		
 		return count;
@@ -88,7 +91,6 @@ namespace Scheduler
 		
 		while (!_ready.empty()) {
 			auto fiber = _ready.front();
-			_ready.pop_front();
 			
 			count += 1;
 			fiber->transfer();
