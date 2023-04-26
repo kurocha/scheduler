@@ -194,7 +194,7 @@ namespace Scheduler
 	
 	std::size_t Reactor::select()
 	{
-		select_internal(nullptr);
+		return select_internal(nullptr);
 	}
 	
 	std::size_t Reactor::select(Interval duration)
