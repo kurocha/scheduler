@@ -15,8 +15,8 @@ namespace Scheduler
 	class After final
 	{
 	public:
-		After(Interval duration, Reactor * reactor = Reactor::current);
-		virtual ~After();
+		After(Interval duration) : _duration(duration) {}
+		~After() {}
 		
 		After(const After &) = delete;
 		After & operator=(const After &) = delete;
@@ -25,6 +25,5 @@ namespace Scheduler
 		
 	private:
 		Interval _duration;
-		Reactor * _reactor;
 	};
 }

@@ -34,11 +34,11 @@ namespace Scheduler
 				});
 				
 				order += 'A';
-				fiber.resume();
+				fiber.transfer();
 				order += 'C';
-				bound.reactor.update(1);
+				bound.reactor.run(0.15);
 				order += 'E';
-				bound.reactor.update(1);
+				bound.reactor.run(0.15);
 				order += 'G';
 				
 				examiner.expect(order) == "ABCDEFG";
@@ -49,35 +49,31 @@ namespace Scheduler
 			[](UnitTest::Examiner & examiner) {
 				Reactor::Bound bound;
 				unsigned count = 0;
-
-				Fiber top("top", [&](){
-					Fiber work("work", [&](){
-						After event(0.1);
-
-						while (true) {
-							count += 1;
-							event.wait();
-						}
-					});
-
-					Fiber timeout("timeout", [&](){
-						After event(0.25);
-
+				
+				Fiber work_fiber([&](){
+					Fiber::current->annotate("work");
+					After event(0.1);
+					
+					while (true) {
+						count += 1;
 						event.wait();
-
-						work.stop();
-					});
-
-					// Schedule the timeout:
-					timeout.resume();
-					work.resume();
-
-					Fiber::current->yield();
+					}
 				});
-
-				top.resume();
-
-				bound.reactor.wait(1.0);
+				
+				work_fiber.transfer();
+				
+				Fiber timeout_fiber([&](){
+					Fiber::current->annotate("timeout");
+					After event(0.25);
+					
+					event.wait();
+					
+					work_fiber.stop();
+				});
+				
+				timeout_fiber.transfer();
+				
+				bound.reactor.run();
 				
 				examiner.expect(count) == 3;
 			}

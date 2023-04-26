@@ -20,20 +20,14 @@ namespace Scheduler
 {
 	using namespace Concurrent;
 	
-	After::After(Interval duration, Reactor * reactor) : _duration(duration), _reactor(reactor)
-	{
-	}
-	
-	After::~After()
-	{
-	}
-	
 	void After::wait()
 	{
 		assert(Fiber::current);
+		auto reactor = Reactor::current;
+		assert(reactor);
 
 #if defined(SCHEDULER_KQUEUE)
-		_reactor->append({
+		reactor->append({
 			reinterpret_cast<uintptr_t>(this),
 			EVFILT_TIMER,
 			EV_ADD | EV_ONESHOT | EV_UDATA_SPECIFIC,
@@ -44,7 +38,7 @@ namespace Scheduler
 		});
 		
 		auto defer_removal = defer([&]{
-			_reactor->append({
+			reactor->append({
 				reinterpret_cast<uintptr_t>(this),
 				EVFILT_TIMER,
 				EV_DELETE | EV_UDATA_SPECIFIC,
@@ -54,21 +48,21 @@ namespace Scheduler
 			}, false);
 		});
 		
-		_reactor->transfer();
+		reactor->transfer();
 		
 		defer_removal.cancel();
 #elif defined(SCHEDULER_EPOLL)
 		// TODO cache the timer handle:
 		Handle timer_handle = ::timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC);
 		
-		_reactor->append(EPOLL_CTL_ADD, timer_handle, EPOLLIN|EPOLLET, (void*)Fiber::current);
+		reactor->append(EPOLL_CTL_ADD, timer_handle, EPOLLIN|EPOLLET, (void*)Fiber::current);
 		
 		struct itimerspec value;
 		value.it_value = _duration.value();
 		value.it_interval = {0, 0};
 		
 		::timerfd_settime(timer_handle, 0, &value, nullptr);
-		_reactor->transfer();
+		reactor->transfer();
 #endif
 	}
 }

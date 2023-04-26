@@ -18,10 +18,6 @@ namespace Scheduler
 {
 	using namespace Concurrent;
 	
-	Monitor::Monitor(Descriptor descriptor, Reactor * reactor) : _descriptor(descriptor), _reactor(reactor)
-	{
-	}
-	
 	Monitor::~Monitor()
 	{
 		remove();
@@ -41,8 +37,10 @@ namespace Scheduler
 	void Monitor::wait(Monitor::Event events)
 	{
 		assert(Fiber::current);
+		assert(Reactor::current);
 		
 		_added = Fiber::current;
+		_reactor = Reactor::current;
 		_events = events;
 		
 		_reactor->append({
@@ -67,18 +65,22 @@ namespace Scheduler
 	void Monitor::wait(Monitor::Event events)
 	{
 		assert(Fiber::current);
+		assert(Reactor::current);
 		
-		int action = EPOLL_CTL_ADD;
+		_added = Fiber::current;
+		_reactor = Reactor::current;
+		_events = events;
 		
-		if (_added) {
-			action = EPOLL_CTL_MOD;
-		} else {
-			_added = Fiber::current;
-		}
+		_reactor->append(EPOLL_CTL_ADD, _descriptor, events | EPOLLET | EPOLLONESHOT, (void*)Fiber::current);
 		
-		_reactor->append(action, _descriptor, events | EPOLLET | EPOLLONESHOT, (void*)Fiber::current);
+		auto defer_removal = defer([&]{
+			remove();
+		});
 		
 		_reactor->transfer();
+		
+		defer_removal.cancel();
+		_added = nullptr;
 	}
 #endif
 
@@ -98,8 +100,11 @@ namespace Scheduler
 				added
 			});
 #elif defined(SCHEDULER_EPOLL)
-			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, added);
+			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, nullptr);
 #endif
+			
+			_reactor = nullptr;
+			_events = NONE;
 		}
 	}
 }

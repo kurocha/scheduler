@@ -48,51 +48,44 @@ namespace Scheduler
 		Reactor();
 		~Reactor();
 		
+		// Transfer to the reactor.
 		void transfer();
 		
-		// Run the reactor once, waiting for at most the given duration for events to occur.
-		std::size_t update(Interval duration);
+		// Transfer to the specified fiber, mark the current fiber as ready.
+		void transfer(Fiber * fiber);
 		
-		/// Invoke update multiple times for the given duration.
-		std::size_t wait(Interval duration);
+		// Run the reactor until all fibers are completed.
+		std::size_t run();
+		
+		// Run the reactor until all fibers are completed or the specified duration has elapsed.
+		std::size_t run(Interval duration);
 		
 		const Handle & handle() const noexcept {return _selector;}
 		Handle & handle() noexcept {return _selector;}
 		
-		template <typename Function>
-		void fiber(Function && function)
-		{
-			auto iterator = _fibers.insert(_fibers.end(), nullptr);
-			
-			iterator->reset(new Fiber([this, iterator, function = std::forward<Function>(function)]{
-				auto defer_erase = defer([this, iterator]{
-					// Remove the fiber from the list of fibers:
-					_fibers.erase(iterator);
-				});
-				
-				function();
-			}));
-			
-			_ready.push_back(iterator->get());
-		}
-		
 	private:
 		Handle _selector;
 		
-		std::list<std::unique_ptr<Fiber>> _fibers;
+		std::size_t _waiting = 0;
 		std::list<Fiber *> _ready;
 		std::size_t transfer_ready();
 		
+		// Wait indefinitely for events:
+		std::size_t select();
+		
+		// Wait at most the specified duration for events:
 		std::size_t select(Interval duration);
 		
 #if defined(SCHEDULER_EPOLL)
 	public:
+		std::size_t select_internal(int timeout);
 		void append(int operation, Descriptor descriptor, int events, void * data);
 		
 	private:
 		std::vector<struct epoll_event> _events;
 #elif defined(SCHEDULER_KQUEUE)
 	public:
+		std::size_t select_internal(int timeout);
 		void append(const struct kevent & event, bool flush = true);
 		
 	private:

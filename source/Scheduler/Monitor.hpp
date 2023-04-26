@@ -15,7 +15,7 @@ namespace Scheduler
 	class Monitor final
 	{
 	public:
-		Monitor(Descriptor descriptor, Reactor * reactor = Reactor::current);
+		Monitor(Descriptor descriptor) : _descriptor(descriptor) {}
 		~Monitor();
 		
 		enum Event : int16_t {
@@ -38,10 +38,10 @@ namespace Scheduler
 		void remove();
 		
 		Fiber *_added = nullptr;
+		Reactor *_reactor = nullptr;
 		Event _events = NONE;
 		
 		Descriptor _descriptor;
-		Reactor * _reactor;
 		
 		void append();
 	};

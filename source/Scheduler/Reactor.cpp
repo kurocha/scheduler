@@ -21,26 +21,32 @@ namespace Scheduler
 {
 	thread_local Reactor * Reactor::current = nullptr;
 	
-	std::size_t Reactor::update(Interval duration)
+	std::size_t Reactor::run()
 	{
-		std::size_t count = transfer_ready();
-		count += select(duration);
+		std::size_t count = 0;
+		
+		while (_waiting || !_ready.empty()) {
+			count += transfer_ready();
+			count += select();
+		}
+		
 		return count;
 	}
 	
-	std::size_t Reactor::wait(Interval duration)
+	std::size_t Reactor::run(Interval duration)
 	{
 		Time::Timeout timeout(duration);
 		std::size_t count = 0;
 		
 		timeout.start();
 		
-		while (true) {
-			auto remaining = timeout.remaining();
+		while (_waiting || !_ready.empty()) {
+			count += transfer_ready();
 			
+			auto remaining = timeout.remaining();
 			if (remaining < Interval(0)) break;
 			
-			count += update(remaining);
+			count += select(remaining);
 		}
 		
 		return count;
@@ -50,9 +56,30 @@ namespace Scheduler
 	{
 	}
 	
+	struct Blocking
+	{
+		std::size_t & count;
+		Blocking(std::size_t & count) : count(count) {count += 1;}
+		~Blocking() {count -= 1;}
+	};
+	
 	void Reactor::transfer()
 	{
+		Blocking blocking(_waiting);
 		Fiber::main.transfer();
+	}
+	
+	// Transfer from the current fiber to the specified fiber.
+	// The current fiber should be placed in the ready list so it can continue execution.
+	void Reactor::transfer(Fiber * fiber)
+	{
+		auto iterator = _ready.insert(_ready.end(), Fiber::current);
+		
+		auto deferred = Defer([this, iterator]{
+			_ready.erase(iterator);
+		});
+		
+		fiber->transfer();
 	}
 	
 	size_t Reactor::transfer_ready()
@@ -76,10 +103,20 @@ namespace Scheduler
 		_events.reserve(512);
 	}
 	
+	std::size_t Reactor::select()
+	{
+		return select_internal(-1);
+	}
+	
 	std::size_t Reactor::select(Interval duration)
 	{
+		return select_internal(duration.as_milliseconds());
+	}
+	
+	std::size_t Reactor::select_internal(int timeout)
+	{
 		_events.resize(_events.capacity());
-		auto result = ::epoll_wait(_selector, _events.data(), _events.size(), duration.as_milliseconds());
+		auto result = ::epoll_wait(_selector, _events.data(), _events.size(), timeout);
 		
 		// If we are interrupted, return gracefully.
 		if (result == -1 && errno == EINTR)
@@ -153,13 +190,22 @@ namespace Scheduler
 		return result;
 	}
 	
+	std::size_t Reactor::select()
+	{
+		select_internal(nullptr);
+	}
+	
 	std::size_t Reactor::select(Interval duration)
 	{
 		auto timeout = duration.as_timespec();
-		
+		return select_internal(&timeout);
+	}
+	
+	std::size_t Reactor::select_internal(struct timespec * timeout)
+	{
 		// TODO is this slow?
 		_events.resize(_events.capacity());
-		auto result = kevent(_selector, _changes.data(), _changes.size(), _events.data(), _events.size(), duration < Interval(0) ? nullptr : &timeout);
+		auto result = kevent(_selector, _changes.data(), _changes.size(), _events.data(), _events.size(), timeout);
 		
 		// std::cerr << "select:kqueue = " << result << " errno = " << errno << std::endl;
 		// for (auto & change : _changes) {

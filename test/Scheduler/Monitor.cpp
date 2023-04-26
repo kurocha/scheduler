@@ -45,7 +45,7 @@ namespace Scheduler
 					}
 				});
 				
-				server.resume();
+				server.transfer();
 				
 				Fiber client([&](){
 					Monitor monitor(pipe.output);
@@ -60,10 +60,9 @@ namespace Scheduler
 					}
 				});
 				
-				client.resume();
+				client.transfer();
 				
-				while (client || server)
-					bound.reactor.update(1.0);
+				bound.reactor.run();
 			}
 		},
 	};
