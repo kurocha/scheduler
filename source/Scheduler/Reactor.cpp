@@ -155,8 +155,9 @@ namespace Scheduler
 		
 		auto result = ::epoll_ctl(_selector, operation, descriptor, &event);
 		
-		if (result == -1)
+		if (result == -1) {
 			throw std::system_error(errno, std::generic_category(), "epoll_ctl");
+		}
 	}
 	
 #elif defined(SCHEDULER_KQUEUE)

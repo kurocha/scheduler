@@ -67,11 +67,18 @@ namespace Scheduler
 		assert(Fiber::current);
 		assert(Reactor::current);
 		
+		int action;
+		if (_added) {
+			action = EPOLL_CTL_MOD;
+		} else {
+			action = EPOLL_CTL_ADD;
+		}
+		
 		_added = Fiber::current;
 		_reactor = Reactor::current;
 		_events = events;
 		
-		_reactor->append(EPOLL_CTL_ADD, _descriptor, events | EPOLLET | EPOLLONESHOT, (void*)Fiber::current);
+		_reactor->append(action, _descriptor, events | EPOLLET | EPOLLONESHOT, (void*)Fiber::current);
 		
 		auto defer_removal = defer([&]{
 			remove();
@@ -80,7 +87,6 @@ namespace Scheduler
 		_reactor->transfer();
 		
 		defer_removal.cancel();
-		_added = nullptr;
 	}
 #endif
 
