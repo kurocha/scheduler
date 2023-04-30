@@ -15,7 +15,7 @@ namespace Scheduler
 	class After final
 	{
 	public:
-		After(Interval duration) : _duration(duration) {}
+		After(Duration duration) : _duration(duration) {}
 		~After() {}
 		
 		After(const After &) = delete;
@@ -23,7 +23,9 @@ namespace Scheduler
 		
 		void wait();
 		
+		void wait(const Timestamp & until);
+		
 	private:
-		Interval _duration;
+		Duration _duration;
 	};
 }

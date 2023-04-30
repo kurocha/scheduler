@@ -27,15 +27,17 @@ namespace Scheduler
 		
 		count += transfer_ready();
 		
-		while (_waiting) {
-			count += select();
+		while (waiting()) {
+			auto next_timer = transfer_timers();
+			
+			count += select(next_timer);
 			count += transfer_ready();
 		}
 		
 		return count;
 	}
 	
-	std::size_t Reactor::run(Interval duration)
+	std::size_t Reactor::run(Duration duration)
 	{
 		Time::Timeout timeout(duration);
 		std::size_t count = 0;
@@ -44,9 +46,17 @@ namespace Scheduler
 		
 		count += transfer_ready();
 		
-		while (_waiting) {
+		while (waiting()) {
 			auto remaining = timeout.remaining();
-			if (remaining < Interval(0)) break;
+			if (remaining < Time::Interval(0)) break;
+			
+			auto next_timer = transfer_timers();
+			if (next_timer) {
+				auto duration = Duration(*next_timer);
+				if (duration < remaining) remaining = duration;
+			}
+			
+			if (remaining < Time::Interval(0)) remaining = Time::Duration(0);
 			
 			count += select(remaining);
 			count += transfer_ready();
@@ -85,6 +95,20 @@ namespace Scheduler
 		fiber->transfer();
 	}
 	
+	void Reactor::sleep(Fiber * fiber, const Timestamp & until)
+	{
+		Registration registration{
+			.fiber = fiber,
+			.result = -1,
+		};
+		
+		TimeoutHandle timeout_handle{&registration};
+		
+		_timers.schedule(until, timeout_handle);
+		
+		transfer();
+	}
+	
 	size_t Reactor::transfer_ready()
 	{
 		size_t count = 0;
@@ -99,6 +123,20 @@ namespace Scheduler
 		return count;
 	}
 	
+	std::optional<Timestamp> Reactor::transfer_timers()
+	{
+		_timers.run();
+		return _timers.next_timestamp();
+	}
+	
+	std::size_t Reactor::select(const std::optional<Duration> & duration)
+	{
+		if (duration)
+			return select(*duration);
+		else
+			return select();
+	}
+	
 #if defined(SCHEDULER_EPOLL)
 	Reactor::Reactor() : _selector(::epoll_create1(EPOLL_CLOEXEC))
 	{
@@ -107,18 +145,19 @@ namespace Scheduler
 	
 	std::size_t Reactor::select()
 	{
-		return select_internal(-1);
+		return select_internal(nullptr);
 	}
 	
-	std::size_t Reactor::select(Interval duration)
+	std::size_t Reactor::select(Duration duration)
 	{
-		return select_internal(duration.as_milliseconds());
+		auto timeout = duration.as_timespec();
+		return select_internal(&timeout);
 	}
 	
-	std::size_t Reactor::select_internal(int timeout)
+	std::size_t Reactor::select_internal(struct timespec * timeout)
 	{
 		_events.resize(_events.capacity());
-		auto result = ::epoll_wait(_selector, _events.data(), _events.size(), timeout);
+		auto result = ::epoll_pwait2(_selector, _events.data(), _events.size(), timeout, nullptr);
 		
 		// If we are interrupted, return gracefully.
 		if (result == -1 && errno == EINTR)
@@ -130,10 +169,11 @@ namespace Scheduler
 		_events.resize(result);
 		
 		for (auto & event : _events) {
-			auto fiber = reinterpret_cast<Concurrent::Fiber *>(event.data.ptr);
+			auto registration = reinterpret_cast<Registration*>(event.data.ptr);
+			registration->result = event.events;
 			
-			if (fiber != nullptr)
-				fiber->transfer();
+			auto fiber = registration->fiber;
+			if (fiber != nullptr) fiber->transfer();
 		}
 		
 		_events.resize(0);
@@ -145,18 +185,25 @@ namespace Scheduler
 		
 		return result;
 	}
-
-	void Reactor::append(int operation, Descriptor descriptor, int events, void * data)
+	
+	void Reactor::append(int operation, Descriptor descriptor, int events, Registration * registration, Timestamp * timeout)
 	{
 		struct epoll_event event;
 		event.events = events;
 		event.data.fd = descriptor;
-		event.data.ptr = data;
+		event.data.ptr = registration;
 		
 		auto result = ::epoll_ctl(_selector, operation, descriptor, &event);
 		
 		if (result == -1) {
 			throw std::system_error(errno, std::generic_category(), "epoll_ctl");
+		}
+		
+		if (timeout) {
+			assert(registration);
+			
+			TimeoutHandle handle{registration};
+			registration->timeout_event = _timers.schedule(*timeout, handle);
 		}
 	}
 	
@@ -198,7 +245,7 @@ namespace Scheduler
 		return select_internal(nullptr);
 	}
 	
-	std::size_t Reactor::select(Interval duration)
+	std::size_t Reactor::select(Duration duration)
 	{
 		auto timeout = duration.as_timespec();
 		return select_internal(&timeout);

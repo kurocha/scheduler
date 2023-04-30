@@ -23,16 +23,16 @@ namespace Scheduler
 		remove();
 	}
 	
-	void Monitor::wait_readable()
+	Monitor::Event Monitor::wait_readable(Timestamp * timeout)
 	{
-		this->wait(Event::READABLE);
+		return this->wait(Event::READABLE, timeout);
 	}
 	
-	void Monitor::wait_writable()
+	Monitor::Event Monitor::wait_writable(Timestamp * timeout)
 	{
-		this->wait(Event::WRITABLE);
+		return this->wait(Event::WRITABLE, timeout);
 	}
-	
+			
 #if defined(SCHEDULER_KQUEUE)
 	void Monitor::wait(Monitor::Event events)
 	{
@@ -62,23 +62,27 @@ namespace Scheduler
 		_added = nullptr;
 	}
 #elif defined(SCHEDULER_EPOLL)
-	void Monitor::wait(Monitor::Event events)
+	Monitor::Event Monitor::wait(Event events, Timestamp * timeout)
 	{
 		assert(Fiber::current);
 		assert(Reactor::current);
 		
 		int action;
-		if (_added) {
+		if (_reactor) {
 			action = EPOLL_CTL_MOD;
 		} else {
 			action = EPOLL_CTL_ADD;
 		}
 		
-		_added = Fiber::current;
+		Reactor::Registration registration{
+			.fiber = Fiber::current,
+			.result = -1,
+		};
+		
 		_reactor = Reactor::current;
 		_events = events;
 		
-		_reactor->append(action, _descriptor, events | EPOLLET | EPOLLONESHOT, (void*)Fiber::current);
+		_reactor->append(action, _descriptor, events | EPOLLET | EPOLLONESHOT, &registration, timeout);
 		
 		auto defer_removal = defer([&]{
 			remove();
@@ -86,16 +90,17 @@ namespace Scheduler
 		
 		_reactor->transfer();
 		
-		defer_removal.cancel();
+		// If we returned with a valid event, we don't need to remove the monitor.
+		if (registration.result)
+			defer_removal.cancel();
+		
+		return Event(registration.result);
 	}
 #endif
-
+	
 	void Monitor::remove()
 	{
-		if (_added) {
-			auto added = _added;
-			_added = nullptr;
-			
+		if (_reactor) {
 #if defined(SCHEDULER_KQUEUE)
 			_reactor->append({
 				static_cast<uintptr_t>(_descriptor),
@@ -106,9 +111,8 @@ namespace Scheduler
 				added
 			});
 #elif defined(SCHEDULER_EPOLL)
-			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, nullptr);
+			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, nullptr, nullptr);
 #endif
-			
 			_reactor = nullptr;
 			_events = NONE;
 		}

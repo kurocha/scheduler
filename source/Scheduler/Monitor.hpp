@@ -19,6 +19,7 @@ namespace Scheduler
 		~Monitor();
 		
 		enum Event : int16_t {
+			// No events. When returned, indicates a timeout.
 			NONE = 0,
 #if defined(SCHEDULER_KQUEUE)
 			READABLE = EVFILT_READ,
@@ -29,20 +30,17 @@ namespace Scheduler
 #endif
 		};
 		
-		void wait_readable();
-		void wait_writable();
+		Event wait(Event events, Timestamp * timeout = nullptr);
 		
-		void wait(Event event);
+		Event wait_readable(Timestamp * timeout = nullptr);
+		Event wait_writable(Timestamp * timeout = nullptr);
 		
 	protected:
-		void remove();
+		Descriptor _descriptor;
 		
-		Fiber *_added = nullptr;
 		Reactor *_reactor = nullptr;
 		Event _events = NONE;
 		
-		Descriptor _descriptor;
-		
-		void append();
+		void remove();
 	};
 }
