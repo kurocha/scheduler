@@ -38,8 +38,9 @@ namespace Scheduler
 	protected:
 		Descriptor _descriptor;
 		
-		Reactor *_reactor = nullptr;
 		Event _events = NONE;
+		Reactor *_reactor = nullptr;
+		Reactor::Registration _registration;
 		
 		void remove();
 	};

@@ -34,14 +34,18 @@ namespace Scheduler
 	}
 			
 #if defined(SCHEDULER_KQUEUE)
-	void Monitor::wait(Monitor::Event events)
+	Monitor::Event Monitor::wait(Event events, Timestamp * timeout)
 	{
-		assert(Fiber::current);
-		assert(Reactor::current);
-		
-		_added = Fiber::current;
-		_reactor = Reactor::current;
+		// Only one fiber can be waiting at a time on a monitor.
+		assert(_events == NONE);
 		_events = events;
+		
+		assert(Reactor::current);
+		_reactor = Reactor::current;
+		
+		assert(Fiber::current);
+		_registration.fiber = Fiber::current;
+		_registration.result = 0;
 		
 		_reactor->append({
 			static_cast<uintptr_t>(_descriptor),
@@ -49,7 +53,7 @@ namespace Scheduler
 			EV_ADD | EV_CLEAR | EV_ONESHOT | EV_UDATA_SPECIFIC,
 			0,
 			0,
-			(void*)Fiber::current
+			&_registration
 		}, false);
 		
 		auto defer_removal = defer([&]{
@@ -58,12 +62,20 @@ namespace Scheduler
 		
 		_reactor->transfer();
 		
-		defer_removal.cancel();
-		_added = nullptr;
+		if (_registration.result) {
+			_events = NONE;
+			_reactor = nullptr;
+			defer_removal.cancel();
+		}
+		
+		return Event(_registration.result);
 	}
 #elif defined(SCHEDULER_EPOLL)
 	Monitor::Event Monitor::wait(Event events, Timestamp * timeout)
 	{
+		// Only one fiber can be waiting at a time on a monitor.
+		assert(_events == NONE);
+		
 		assert(Fiber::current);
 		assert(Reactor::current);
 		
@@ -76,7 +88,7 @@ namespace Scheduler
 		
 		Reactor::Registration registration{
 			.fiber = Fiber::current,
-			.result = -1,
+			.result = 0,
 		};
 		
 		_reactor = Reactor::current;
@@ -108,7 +120,7 @@ namespace Scheduler
 				EV_DELETE | EV_UDATA_SPECIFIC,
 				0,
 				0,
-				added
+				&_registration
 			});
 #elif defined(SCHEDULER_EPOLL)
 			_reactor->append(EPOLL_CTL_DEL, _descriptor, 0, nullptr, nullptr);

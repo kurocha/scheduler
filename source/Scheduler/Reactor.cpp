@@ -19,6 +19,10 @@
 
 namespace Scheduler
 {
+	enum {
+		DEBUG = 0
+	};
+	
 	thread_local Reactor * Reactor::current = nullptr;
 	
 	std::size_t Reactor::run()
@@ -220,7 +224,7 @@ namespace Scheduler
 			case EVFILT_TIMER: return "EVFILT_TIMER";
 		}
 		
-		return "???";
+		return std::to_string(filter);
 	}
 	
 	std::string flags_name(uint16_t flags) {
@@ -257,10 +261,12 @@ namespace Scheduler
 		_events.resize(_events.capacity());
 		auto result = kevent(_selector, _changes.data(), _changes.size(), _events.data(), _events.size(), timeout);
 		
-		// std::cerr << "select:kqueue = " << result << " errno = " << errno << std::endl;
-		// for (auto & change : _changes) {
-		// 	std::cerr << "\tchange " << change.ident << " " << filter_name(change.filter) << " " << flags_name(change.flags) << std::endl;
-		// }
+		if (DEBUG) {
+			std::cerr << "select:kqueue = " << result << " errno = " << errno << std::endl;
+			for (auto & change : _changes) {
+				std::cerr << "\tchange " << change.ident << " " << filter_name(change.filter) << " " << flags_name(change.flags) << std::endl;
+			}
+		}
 		
 		// If we are interrupted, return gracefully.
 		if (result == -1 && errno == EINTR)
@@ -273,13 +279,15 @@ namespace Scheduler
 		_events.resize(result);
 		
 		for (auto & event : _events) {
-			// std::cerr << "\tfiring " << event.ident << " " << filter_name(event.filter) << " " << flags_name(event.flags) << std::endl;
-			
-			auto fiber = reinterpret_cast<Concurrent::Fiber *>(event.udata);
-			
-			if (fiber != nullptr) {
-				fiber->transfer();
+			if (DEBUG) {
+				std::cerr << "\tfiring " << event.ident << " " << filter_name(event.filter) << " " << flags_name(event.flags) << std::endl;
 			}
+			
+			auto registration = reinterpret_cast<Registration *>(event.udata);
+			registration->result = event.filter;
+			
+			auto fiber = registration->fiber;
+			if (fiber != nullptr) fiber->transfer();
 		}
 		
 		_events.resize(0);
@@ -299,10 +307,12 @@ namespace Scheduler
 		if (flush) {
 			auto result = kevent(_selector, _changes.data(), _changes.size(), nullptr, 0, nullptr);
 			
-			// std::cerr << "append:kqueue = " << result << " errno = " << errno << std::endl;
-			// for (auto & change : _changes) {
-			// 	std::cerr << "\tchange " << change.ident << " " << filter_name(change.filter) << " " << flags_name(change.flags) << std::endl;
-			// }
+			if (DEBUG) {
+				std::cerr << "append:kqueue = " << result << " errno = " << errno << std::endl;
+				for (auto & change : _changes) {
+					std::cerr << "\tchange " << change.ident << " " << filter_name(change.filter) << " " << flags_name(change.flags) << std::endl;
+				}
+			}
 			
 			_changes.clear();
 			
