@@ -43,6 +43,7 @@ namespace Scheduler
 		
 		void release();
 		
+		// @returns true if the semaphore was signalled.
 		// @returns false if timeout occurs.
 		bool wait(const Timestamp * timeout = nullptr);
 		

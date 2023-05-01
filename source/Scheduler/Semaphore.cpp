@@ -11,6 +11,8 @@
 #include "Reactor.hpp"
 #include "Defer.hpp"
 
+#include <iostream>
+
 namespace Scheduler
 {
 	Semaphore::~Semaphore()
@@ -27,6 +29,7 @@ namespace Scheduler
 		}
 		
 		_count -= 1;
+		return true;
 	}
 	
 	void Semaphore::release()
@@ -50,10 +53,11 @@ namespace Scheduler
 		auto reactor = Reactor::current;
 		
 		if (timeout) {
-			return reactor->sleep(fiber, *timeout);
+			return !reactor->sleep(fiber, *timeout);
 		}
 		else {
 			reactor->transfer();
+			return true;
 		}
 	}
 	
