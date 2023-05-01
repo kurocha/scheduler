@@ -30,10 +30,10 @@ namespace Scheduler
 #endif
 		};
 		
-		Event wait(Event events, Timestamp * timeout = nullptr);
+		Event wait(Event events, const Timestamp * timeout = nullptr);
 		
-		Event wait_readable(Timestamp * timeout = nullptr);
-		Event wait_writable(Timestamp * timeout = nullptr);
+		Event wait_readable(const Timestamp * timeout = nullptr);
+		Event wait_writable(const Timestamp * timeout = nullptr);
 		
 	protected:
 		Descriptor _descriptor;

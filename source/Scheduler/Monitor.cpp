@@ -23,18 +23,18 @@ namespace Scheduler
 		remove();
 	}
 	
-	Monitor::Event Monitor::wait_readable(Timestamp * timeout)
+	Monitor::Event Monitor::wait_readable(const Timestamp * timeout)
 	{
 		return this->wait(Event::READABLE, timeout);
 	}
 	
-	Monitor::Event Monitor::wait_writable(Timestamp * timeout)
+	Monitor::Event Monitor::wait_writable(const Timestamp * timeout)
 	{
 		return this->wait(Event::WRITABLE, timeout);
 	}
 			
 #if defined(SCHEDULER_KQUEUE)
-	Monitor::Event Monitor::wait(Event events, Timestamp * timeout)
+	Monitor::Event Monitor::wait(Event events, const Timestamp * timeout)
 	{
 		// Only one fiber can be waiting at a time on a monitor.
 		assert(_events == NONE);
