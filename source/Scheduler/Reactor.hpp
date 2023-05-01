@@ -100,13 +100,14 @@ namespace Scheduler
 		void transfer(Fiber * fiber);
 		
 		// Sleep for the specified interval.
-		void sleep(Fiber * fiber, const Timestamp & until);
+		// @returns true if the sleep was not interrupted.
+		bool sleep(Fiber * fiber, const Timestamp & until);
 		
 		// Run the reactor until all fibers are completed.
 		std::size_t run();
 		
 		// Run the reactor until all fibers are completed or the specified duration has elapsed.
-		std::size_t run(Duration duration);
+		std::size_t run(const Duration & duration);
 		
 		const Handle & handle() const noexcept {return _selector;}
 		Handle & handle() noexcept {return _selector;}

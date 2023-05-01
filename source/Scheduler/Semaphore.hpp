@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <Time/Interval.hpp>
 #include "Fiber.hpp"
 
 #include <cstdint>
@@ -15,6 +16,8 @@
 
 namespace Scheduler
 {
+	using Timestamp = Time::Timestamp;
+	
 	class Semaphore final
 	{
 		std::size_t _count = 0;
@@ -34,10 +37,14 @@ namespace Scheduler
 		
 		std::size_t count() const noexcept {return _count;}
 		
-		void acquire();
+		// @returns true if the semaphore was acquired.
+		// @returns false if timeout occurs.
+		bool acquire(const Timestamp * timeout = nullptr);
+		
 		void release();
 		
-		void wait();
+		// @returns false if timeout occurs.
+		bool wait(const Timestamp * timeout = nullptr);
 		
 		void broadcast();
 		void signal(std::size_t count = 1);

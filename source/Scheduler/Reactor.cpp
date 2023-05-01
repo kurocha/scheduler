@@ -41,7 +41,7 @@ namespace Scheduler
 		return count;
 	}
 	
-	std::size_t Reactor::run(Duration duration)
+	std::size_t Reactor::run(const Duration & duration)
 	{
 		Time::Timeout timeout(duration);
 		std::size_t count = 0;
@@ -99,7 +99,7 @@ namespace Scheduler
 		fiber->transfer();
 	}
 	
-	void Reactor::sleep(Fiber * fiber, const Timestamp & until)
+	bool Reactor::sleep(Fiber * fiber, const Timestamp & until)
 	{
 		Registration registration{
 			.fiber = fiber,
@@ -107,10 +107,13 @@ namespace Scheduler
 		};
 		
 		TimeoutHandle timeout_handle{&registration};
-		
 		_timers.schedule(until, timeout_handle);
 		
 		transfer();
+		
+		// If the timeout was triggered, it sets the result to 0.
+		// Otherwise, something else woke us up.
+		return registration.result == 0;
 	}
 	
 	size_t Reactor::transfer_ready()

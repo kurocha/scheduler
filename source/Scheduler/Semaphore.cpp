@@ -20,10 +20,10 @@ namespace Scheduler
 		}
 	}
 	
-	void Semaphore::acquire()
+	bool Semaphore::acquire(const Timestamp * timeout)
 	{
 		while (_count == 0) {
-			wait();
+			if (!wait(timeout)) return false;
 		}
 		
 		_count -= 1;
@@ -35,9 +35,10 @@ namespace Scheduler
 		signal();
 	}
 	
-	void Semaphore::wait()
+	bool Semaphore::wait(const Timestamp * timeout)
 	{
 		Fiber * fiber = Fiber::current;
+		assert(fiber);
 		
 		auto iterator = _waiting.insert(_waiting.end(), fiber);
 		
@@ -46,7 +47,14 @@ namespace Scheduler
 		});
 		
 		assert(Reactor::current);
-		Reactor::current->transfer();
+		auto reactor = Reactor::current;
+		
+		if (timeout) {
+			return reactor->sleep(fiber, *timeout);
+		}
+		else {
+			reactor->transfer();
+		}
 	}
 	
 	void Semaphore::broadcast()
