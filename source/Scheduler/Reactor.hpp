@@ -20,6 +20,7 @@
 
 #include <vector>
 #include <list>
+#include <iostream>
 
 #include <Time/Interval.hpp>
 #include <Time/Queue.hpp>
@@ -49,7 +50,7 @@ namespace Scheduler
 	
 	private:
 		struct TimeoutHandle {
-			Registration *registration;
+			Registration *registration = nullptr;
 			
 			void operator()()
 			{
@@ -78,14 +79,19 @@ namespace Scheduler
 		struct Bound;
 		
 		struct Registration {
-			Fiber * fiber = nullptr;
 			int result = 0;
+			Fiber * fiber = nullptr;
 			
 			Timers::EventReference timeout_event;
 			
-			~Registration() {
+			Registration(int result_ = 0, Fiber *fiber_ = Fiber::current) : result(result_), fiber(fiber_) {}
+			
+			~Registration()
+			{
 				if (timeout_event) timeout_event->handle.cancel();
 			}
+			
+			void schedule(Timers & timers, const Timestamp & timeout);
 		};
 		
 		Reactor();
@@ -135,7 +141,7 @@ namespace Scheduler
 #if defined(SCHEDULER_EPOLL)
 	public:
 		std::size_t select_internal(struct timespec * timeout);
-		void append(int operation, Descriptor descriptor, int events, Registration * registration, Timestamp *timeout = nullptr);
+		void append(int operation, Descriptor descriptor, int events, Registration * registration, const Timestamp *timeout = nullptr);
 		
 	private:
 		std::vector<struct epoll_event> _events;

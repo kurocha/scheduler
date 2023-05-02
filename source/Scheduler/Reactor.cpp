@@ -25,6 +25,15 @@ namespace Scheduler
 	
 	thread_local Reactor * Reactor::current = nullptr;
 	
+	void Reactor::Registration::schedule(Timers & timers, const Timestamp & timeout)
+	{
+		if (timeout_event) {
+			timeout_event->handle.cancel();
+		}
+		
+		timeout_event = timers.schedule(timeout, TimeoutHandle{this});
+	}
+	
 	std::size_t Reactor::run()
 	{
 		std::size_t count = 0;
@@ -101,13 +110,8 @@ namespace Scheduler
 	
 	bool Reactor::sleep(Fiber * fiber, const Timestamp & until)
 	{
-		Registration registration{
-			.fiber = fiber,
-			.result = -1,
-		};
-		
-		TimeoutHandle timeout_handle{&registration};
-		_timers.schedule(until, timeout_handle);
+		Registration registration(-1, fiber);
+		registration.schedule(_timers, until);
 		
 		transfer();
 		
@@ -193,8 +197,10 @@ namespace Scheduler
 		return result;
 	}
 	
-	void Reactor::append(int operation, Descriptor descriptor, int events, Registration * registration, Timestamp * timeout)
+	void Reactor::append(int operation, Descriptor descriptor, int events, Registration * registration, const Timestamp * timeout)
 	{
+		assert(!registration || registration->fiber);
+		
 		struct epoll_event event;
 		event.events = events;
 		event.data.fd = descriptor;
@@ -208,9 +214,7 @@ namespace Scheduler
 		
 		if (timeout) {
 			assert(registration);
-			
-			TimeoutHandle handle{registration};
-			registration->timeout_event = _timers.schedule(*timeout, handle);
+			registration->schedule(_timers, *timeout);
 		}
 	}
 	

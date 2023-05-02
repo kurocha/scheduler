@@ -16,7 +16,6 @@ namespace Scheduler
 	{
 	public:
 		Monitor(Descriptor descriptor) : _descriptor(descriptor) {}
-		~Monitor();
 		
 		enum Event : int16_t {
 			// No events. When returned, indicates a timeout.
@@ -37,11 +36,5 @@ namespace Scheduler
 		
 	protected:
 		Descriptor _descriptor;
-		
-		Event _events = NONE;
-		Reactor *_reactor = nullptr;
-		Reactor::Registration _registration;
-		
-		void remove();
 	};
 }
