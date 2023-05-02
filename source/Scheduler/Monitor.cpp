@@ -63,7 +63,7 @@ namespace Scheduler
 			defer_removal.cancel();
 		}
 		
-		return Event(_registration.result);
+		return Event(registration.result);
 	}
 #elif defined(SCHEDULER_EPOLL)
 	Monitor::Event Monitor::wait(Event events, const Timestamp * timeout)
