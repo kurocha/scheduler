@@ -119,7 +119,7 @@ namespace Scheduler
 		Handle & handle() noexcept {return _selector;}
 		
 		bool waiting() const noexcept {
-			return _waiting || _timers.waiting();
+			return _waiting;
 		}
 		
 	private:

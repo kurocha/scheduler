@@ -69,8 +69,6 @@ namespace Scheduler
 				if (duration < remaining) remaining = duration;
 			}
 			
-			if (remaining < Time::Interval(0)) remaining = Time::Duration(0);
-			
 			count += select(remaining);
 			count += transfer_ready();
 		}
@@ -85,8 +83,17 @@ namespace Scheduler
 	struct Blocking
 	{
 		std::size_t & count;
-		Blocking(std::size_t & count) : count(count) {count += 1;}
-		~Blocking() {count -= 1;}
+		bool transient;
+		
+		Blocking(std::size_t & count) : count(count), transient(Fiber::current->transient)
+		{
+			if (!transient) count += 1;
+		}
+		
+		~Blocking()
+		{
+			if (!transient) count -= 1;
+		}
 	};
 	
 	void Reactor::transfer()
@@ -99,6 +106,7 @@ namespace Scheduler
 	// The current fiber should be placed in the ready list so it can continue execution.
 	void Reactor::transfer(Fiber * fiber)
 	{
+		Blocking blocking(_waiting);
 		auto iterator = _ready.insert(_ready.end(), Fiber::current);
 		
 		auto deferred = Defer([this, iterator]{
@@ -144,6 +152,8 @@ namespace Scheduler
 	{
 		if (duration)
 			return select(*duration);
+		else if (!waiting())
+			return select(Duration(0));
 		else
 			return select();
 	}
@@ -161,6 +171,10 @@ namespace Scheduler
 	
 	std::size_t Reactor::select(Duration duration)
 	{
+		if (duration < Duration(0)) {
+			duration = Duration(0);
+		}
+		
 		auto timeout = duration.as_timespec();
 		return select_internal(&timeout);
 	}
@@ -258,6 +272,10 @@ namespace Scheduler
 	
 	std::size_t Reactor::select(Duration duration)
 	{
+		if (duration < Duration(0)) {
+			duration = Duration(0);
+		}
+		
 		auto timeout = duration.as_timespec();
 		return select_internal(&timeout);
 	}
