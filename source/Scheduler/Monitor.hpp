@@ -17,6 +17,23 @@ namespace Scheduler
 	public:
 		Monitor(Descriptor descriptor) : _descriptor(descriptor) {}
 		
+		Monitor(Monitor && other) :
+			_descriptor(other._descriptor)
+		{
+			other._descriptor = -1;
+		}
+		
+		Monitor & operator=(Monitor && other)
+		{
+			_descriptor = other._descriptor;
+			other._descriptor = -1;
+			
+			return *this;
+		}
+		
+		Monitor(const Monitor &) = delete;
+		Monitor & operator=(const Monitor &) = delete;
+		
 		enum Event : int16_t {
 			// No events. When returned, indicates a timeout.
 			NONE = 0,
@@ -33,6 +50,9 @@ namespace Scheduler
 		
 		Event wait_readable(const Timestamp * timeout = nullptr);
 		Event wait_writable(const Timestamp * timeout = nullptr);
+		
+		void mark() {}
+		void compact() {}
 		
 	protected:
 		Descriptor _descriptor;
